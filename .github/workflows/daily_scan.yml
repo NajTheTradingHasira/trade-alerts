@@ -1,0 +1,60 @@
+name: Daily Market Close Scan
+
+on:
+  schedule:
+    # 4:30 PM ET = 20:30 UTC (EST) / 21:30 UTC (EDT)
+    # Run at both times to cover DST transitions
+    - cron: '30 20 * * 1-5'
+    - cron: '30 21 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      skip:
+        description: 'Screeners to skip (space-separated: 2020 4040 ep bullsnort volume rs postmarket)'
+        required: false
+        default: ''
+      only:
+        description: 'Run only these screeners (space-separated)'
+        required: false
+        default: ''
+
+jobs:
+  daily-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install yfinance pandas numpy slack-sdk
+
+      - name: Run daily scan
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          ARGS="--slack --config channel_config.json"
+          if [ -n "${{ github.event.inputs.skip }}" ]; then
+            ARGS="$ARGS --skip ${{ github.event.inputs.skip }}"
+          fi
+          if [ -n "${{ github.event.inputs.only }}" ]; then
+            ARGS="$ARGS --only ${{ github.event.inputs.only }}"
+          fi
+          python daily_scan.py $ARGS
+
+      - name: Upload CSV results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scan-results-${{ github.run_number }}
+          path: '*.csv'
+          retention-days: 30
+          if-no-files-found: ignore
