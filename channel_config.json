@@ -1,0 +1,37 @@
+{
+  "channels": {
+    "firehose": "C0ANZDPD4AU",
+    "climax-tops": "C0AP2S583TR",
+    "breakaway-gaps": "C0APG7XMZPY",
+    "stage-transitions": "C0APG7WTGUW",
+    "post-earnings": "C0APET6RB0D",
+    "elite-setups": "C0AQCJ0L1JL",
+    "regime-alerts": "C0APBU2RUR1",
+    "volume-surges": "C0APBUDJVNX",
+    "relative-strength": "C0APBUEFG1Z",
+    "episodic-pivots": "C0APETM14DT",
+    "bullsnort": "C0APG8D3H0W",
+    "20-20-screener": "C0APG8ERD7Y",
+    "40-40-screener": "C0APJAFQLCA",
+    "premarket-movers": "C0APMTA03HS",
+    "postmarket-movers": "C0APMTV3BRA"
+  },
+  "routing": {
+    "2020": "20-20-screener",
+    "4040": "40-40-screener",
+    "__20_20__": "20-20-screener",
+    "__40_40__": "40-40-screener",
+    "__episodic_pivot__": "episodic-pivots",
+    "__climax_top__": "climax-tops",
+    "__breakaway_gap__": "breakaway-gaps",
+    "__stage_transition__": "stage-transitions",
+    "__post_earnings__": "post-earnings",
+    "__elite_setup__": "elite-setups",
+    "__regime_alert__": "regime-alerts",
+    "__volume_surge__": "volume-surges",
+    "__relative_strength__": "relative-strength",
+    "__bullsnort__": "bullsnort",
+    "__premarket_mover__": "premarket-movers",
+    "__postmarket_mover__": "postmarket-movers"
+  }
+}
