@@ -290,6 +290,13 @@ def _send_direct(winners: list[dict], losers: list[dict]):
 
     for channel_id, name in [("C0APMTA03HS", "premarket-movers"), ("C0ANZDPD4AU", "firehose")]:
         try:
+            # Auto-join channel before posting
+            requests.post(
+                "https://slack.com/api/conversations.join",
+                headers=headers,
+                json={"channel": channel_id},
+                timeout=10,
+            )
             resp = requests.post(
                 "https://slack.com/api/chat.postMessage",
                 headers=headers,

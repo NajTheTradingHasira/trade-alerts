@@ -147,6 +147,12 @@ class SlackRouter:
             return
 
         try:
+            # Auto-join channel before posting (requires channels:join scope)
+            try:
+                self._client.conversations_join(channel=channel_id)
+            except SlackApiError:
+                pass  # Already in channel, or can't join (DM, private) — proceed anyway
+
             self._client.chat_postMessage(
                 channel=channel_id,
                 text=text,
