@@ -34,6 +34,8 @@
     "__premarket_mover__": "premarket-movers",
     "premarket_winner": "premarket-movers",
     "premarket_loser": "premarket-movers",
-    "__postmarket_mover__": "postmarket-movers"
+    "__postmarket_mover__": "postmarket-movers",
+    "postmarket_winner": "postmarket-movers",
+    "postmarket_loser": "postmarket-movers"
   }
 }

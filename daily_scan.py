@@ -97,9 +97,9 @@ SCREENERS = {
     "postmarket": {
         "name": "Post-Market Movers",
         "emoji": "🌙",
-        "module": "extended_hours_screener",
-        "function": "run_extended_hours_screen",
-        "kwargs": {"mode": "postmarket"},
+        "module": "postmarket_screener_polygon",
+        "function": "run_postmarket_screen",
+        "kwargs": {},
         "channel": "#postmarket-movers",
         "returns_tuple": True,  # returns (winners, losers)
     },
@@ -113,6 +113,7 @@ SLACK_SENDERS = {
     "volume_surge_screener": "send_to_slack",
     "relative_strength_screener": "send_to_slack",
     "extended_hours_screener": "send_to_slack",
+    "postmarket_screener_polygon": "send_to_slack",
 }
 
 
@@ -171,10 +172,14 @@ def run_screener(key: str, config: dict, slack: bool = False, config_path: str =
         out_dir.mkdir(parents=True, exist_ok=True)
 
         if info.get("returns_tuple") and key == "postmarket":
-            if not winners.empty:
-                winners.to_csv(out_dir / f"{key}_winners.csv", index=False)
-            if not losers.empty:
-                losers.to_csv(out_dir / f"{key}_losers.csv", index=False)
+            import csv as csv_mod
+            for label, items in [("winners", winners), ("losers", losers)]:
+                if items:
+                    path = out_dir / f"{key}_{label}.csv"
+                    with open(path, "w", newline="") as f:
+                        writer = csv_mod.DictWriter(f, fieldnames=items[0].keys())
+                        writer.writeheader()
+                        writer.writerows(items)
         elif info.get("returns_tuple") and key == "rs":
             if not df.empty:
                 df.to_csv(out_dir / f"{key}.csv", index=False)
@@ -189,7 +194,7 @@ def run_screener(key: str, config: dict, slack: bool = False, config_path: str =
                 if key == "rs":
                     send_fn(df, down_days, config_path)
                 elif key == "postmarket":
-                    send_fn(winners, losers, "postmarket", config_path)
+                    send_fn(winners, losers, config_path)
                 elif key in ("2020", "4040"):
                     send_fn(df, info["kwargs"]["mode"], config_path)
                 else:
