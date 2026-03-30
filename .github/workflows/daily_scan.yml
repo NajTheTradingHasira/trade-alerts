@@ -2,10 +2,9 @@ name: Daily Market Close Scan
 
 on:
   schedule:
-    # 4:30 PM ET = 20:30 UTC (EST) / 21:30 UTC (EDT)
-    # Run at both times to cover DST transitions
+    # 4:30 PM EDT = 20:30 UTC (during EDT, Mar-Nov)
+    # During EST (Nov-Mar), this fires at 3:30 PM ET — still fine, market closes at 4 PM
     - cron: '30 20 * * 1-5'
-    - cron: '30 21 * * 1-5'
   workflow_dispatch:
     inputs:
       skip:
@@ -34,11 +33,12 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install yfinance pandas numpy slack-sdk
+          pip install yfinance pandas numpy slack-sdk requests
 
       - name: Run daily scan
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
           PYTHONIOENCODING: utf-8
         run: |
           ARGS="--slack --config channel_config.json"
@@ -55,6 +55,8 @@ jobs:
         if: always()
         with:
           name: scan-results-${{ github.run_number }}
-          path: '*.csv'
+          path: |
+            *.csv
+            output/*.csv
           retention-days: 30
           if-no-files-found: ignore

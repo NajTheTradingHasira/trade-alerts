@@ -1,22 +1,24 @@
-name: Pre-Market Movers Scan
+name: Pre-Market Movers Scan (Polygon)
 
 on:
   schedule:
-    # 8:30 AM ET = 12:30 UTC (EST) / 13:30 UTC (EDT)
-    # Run at both times to cover DST transitions
+    # 8:30 AM EDT = 12:30 UTC (during EDT, Mar-Nov)
     - cron: '30 12 * * 1-5'
-    - cron: '30 13 * * 1-5'
   workflow_dispatch:
     inputs:
       min_change:
         description: 'Minimum % change threshold (default: 3)'
         required: false
         default: '3'
+      min_volume:
+        description: 'Minimum volume (default: 50000)'
+        required: false
+        default: '50000'
 
 jobs:
   premarket-scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -25,29 +27,33 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install yfinance pandas numpy slack-sdk
+          pip install requests pandas slack-sdk
 
-      - name: Run pre-market screener
+      - name: Run pre-market screener (Polygon)
         env:
+          POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           PYTHONIOENCODING: utf-8
         run: |
-          ARGS="--mode premarket --slack --config channel_config.json"
-          if [ -n "${{ github.event.inputs.min_change }}" ] && [ "${{ github.event.inputs.min_change }}" != "3" ]; then
+          ARGS="--slack --config channel_config.json"
+          if [ "${{ github.event.inputs.min_change }}" != "" ] && [ "${{ github.event.inputs.min_change }}" != "3" ]; then
             ARGS="$ARGS --min-change ${{ github.event.inputs.min_change }}"
           fi
-          python extended_hours_screener.py $ARGS
+          if [ "${{ github.event.inputs.min_volume }}" != "" ] && [ "${{ github.event.inputs.min_volume }}" != "50000" ]; then
+            ARGS="$ARGS --min-volume ${{ github.event.inputs.min_volume }}"
+          fi
+          python premarket_screener_polygon.py $ARGS
 
       - name: Upload CSV results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: premarket-results-${{ github.run_number }}
-          path: '*.csv'
+          name: premarket-polygon-${{ github.run_number }}
+          path: 'output/*.csv'
           retention-days: 30
           if-no-files-found: ignore

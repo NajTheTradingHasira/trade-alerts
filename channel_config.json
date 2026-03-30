@@ -32,6 +32,8 @@
     "__relative_strength__": "relative-strength",
     "__bullsnort__": "bullsnort",
     "__premarket_mover__": "premarket-movers",
+    "premarket_winner": "premarket-movers",
+    "premarket_loser": "premarket-movers",
     "__postmarket_mover__": "postmarket-movers"
   }
 }
