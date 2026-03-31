@@ -146,13 +146,13 @@ class SlackRouter:
         if not channel_id:
             return
 
+        # Auto-join channel before posting (requires channels:join scope)
         try:
-            # Auto-join channel before posting (requires channels:join scope)
-            try:
-                self._client.conversations_join(channel=channel_id)
-            except SlackApiError:
-                pass  # Already in channel, or can't join (DM, private) — proceed anyway
+            self._client.conversations_join(channel=channel_id)
+        except Exception:
+            pass  # Already in channel, or can't join (DM, private) — proceed anyway
 
+        try:
             self._client.chat_postMessage(
                 channel=channel_id,
                 text=text,
@@ -160,11 +160,9 @@ class SlackRouter:
                 unfurl_links=False,
                 unfurl_media=False,
             )
-        except SlackApiError as e:
-            error = e.response.get("error", str(e))
-            print(f"  ✗ Slack error ({channel_id}): {error}")
         except Exception as e:
-            print(f"  ✗ Slack post failed ({channel_id}): {e}")
+            error = getattr(e, 'response', {}).get('error', str(e)) if hasattr(e, 'response') else str(e)
+            print(f"  ✗ Slack error ({channel_id}): {error}")
 
     def _channel_id_by_name(self, route_key: str) -> str | None:
         """Return the channel name (not ID) for a route key, for logging."""
