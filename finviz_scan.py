@@ -36,8 +36,20 @@ logger = logging.getLogger("finviz_scan")
 
 # ── Slack Config ─────────────────────────────────────────────────────────────
 SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
-FINVIZ_CHANNEL_ID = os.environ.get("FINVIZ_CHANNEL_ID", "")  # Set after creating #finviz-screens
-ALL_ALERTS_CHANNEL_ID = "C0ANZDPD4AU"  # #all-trade-alerts firehose
+FIREHOSE_CHANNEL_ID = "C0ANZDPD4AU"  # #all-trade-alerts
+
+# Per-screen channel routing
+CHANNEL_MAP = {
+    "canslim_growth":     "C0AQJDCTM1P",  # #finviz-canslim
+    "new_highs":          "C0AQZQJJ00G",  # #finviz-new-highs
+    "top_gainers":        "C0AQZQJLQC8",  # #finviz-top-gainers
+    "top_losers":         "C0AQ5GH43HQ",  # #finviz-top-losers
+    "major_news":         "C0AQJDJPE5P",  # #finviz-major-news
+    "episodic_pivots":    "C0APETM14DT",  # #episodic-pivots
+    "bullsnort":          "C0APG8D3H0W",  # #bullsnort
+    "relative_strength":  "C0APBUEFG1Z",  # #relative-strength
+    "unusual_volume":     "C0APBUDJVNX",  # #volume-surges
+}
 
 # ── Screen Registry ──────────────────────────────────────────────────────────
 # Each screen has:
@@ -382,38 +394,48 @@ def run_scan(mode: str = "all", single_screen: Optional[str] = None, dry_run: bo
 
     except FinvizAuthError as e:
         logger.error(f"Authentication failed: {e}")
-        # Post auth failure alert to Slack
-        if not dry_run and SLACK_BOT_TOKEN and FINVIZ_CHANNEL_ID:
+        # Post auth failure alert to firehose
+        if not dry_run and SLACK_BOT_TOKEN and FIREHOSE_CHANNEL_ID:
             post_to_slack(
                 f"🚨 *Finviz Scan Auth Failure*\n\n"
                 f"Could not log into Finviz Elite. Check `FINVIZ_EMAIL` and `FINVIZ_PASSWORD` secrets.\n"
                 f"Error: `{e}`",
-                FINVIZ_CHANNEL_ID,
+                FIREHOSE_CHANNEL_ID,
             )
         return
 
-    # Format and post
+    # Format and post — each screen goes to its own channel + firehose
     effective_mode = mode if mode != "all" else "postclose"
-    message = build_slack_message(effective_mode, screen_results)
 
     if dry_run:
+        message = build_slack_message(effective_mode, screen_results)
         print("\n" + "=" * 60)
         print("DRY RUN — Slack message preview:")
         print("=" * 60)
         print(message)
         print("=" * 60)
     else:
-        # Post to #finviz-screens
-        if FINVIZ_CHANNEL_ID:
-            success = post_to_slack(message, FINVIZ_CHANNEL_ID)
-            if success:
-                logger.info(f"✅ Posted to #finviz-screens")
-            else:
-                logger.error("Failed to post to #finviz-screens")
+        for screen_key, (screen_cfg, results) in screen_results.items():
+            if not results:
+                continue
 
-        # Also post to #all-trade-alerts firehose
-        if ALL_ALERTS_CHANNEL_ID:
-            post_to_slack(message, ALL_ALERTS_CHANNEL_ID)
+            block = format_screen_block(screen_key, screen_cfg, results)
+            mode_cfg = SCAN_MODES[effective_mode]
+            now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            msg = f"{mode_cfg['label']}  •  {now_str}\n\n{block}"
+
+            # Post to dedicated channel
+            channel_id = CHANNEL_MAP.get(screen_key)
+            if channel_id:
+                success = post_to_slack(msg, channel_id)
+                if success:
+                    logger.info(f"✅ Posted {screen_key} to #{screen_key} channel")
+                else:
+                    logger.error(f"Failed to post {screen_key}")
+
+            # Cross-post to firehose
+            if FIREHOSE_CHANNEL_ID:
+                post_to_slack(msg, FIREHOSE_CHANNEL_ID)
 
     # Summary
     total = sum(len(r) for _, r in screen_results.values())

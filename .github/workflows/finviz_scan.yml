@@ -15,7 +15,7 @@
 #   FINVIZ_EMAIL      — Finviz Elite account email
 #   FINVIZ_PASSWORD   — Finviz Elite account password
 #   SLACK_BOT_TOKEN   — Slack bot OAuth token
-#   FINVIZ_CHANNEL_ID — Slack channel ID for #finviz-screens
+#   (Channel routing is hardcoded in CHANNEL_MAP in finviz_scan.py)
 ###############################################################################
 
 name: Finviz Elite Scan
@@ -57,7 +57,6 @@ jobs:
       FINVIZ_EMAIL: ${{ secrets.FINVIZ_EMAIL }}
       FINVIZ_PASSWORD: ${{ secrets.FINVIZ_PASSWORD }}
       SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-      FINVIZ_CHANNEL_ID: ${{ secrets.FINVIZ_CHANNEL_ID }}
 
     steps:
       - name: Checkout repository
