@@ -1,0 +1,6 @@
+requests
+pandas
+numpy
+yfinance
+slack-sdk
+beautifulsoup4

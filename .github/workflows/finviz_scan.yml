@@ -1,0 +1,120 @@
+###############################################################################
+# APEX — Finviz Elite Screener (Automated)
+#
+# Runs Finviz Elite screens at three time slots:
+#   • 8:30 AM ET  (premarket)  → UTC 12:30  → cron: 30 12
+#   • 12:00 PM ET (midday)     → UTC 16:00  → cron: 00 16
+#   • 4:30 PM ET  (postclose)  → UTC 20:30  → cron: 30 20
+#
+# All times are weekdays only (Mon–Fri).
+# Note: During EDT (Mar–Nov), ET = UTC-4. During EST (Nov–Mar), ET = UTC-5.
+# Crons below use EDT offsets. Adjust by +1 hour during EST if needed,
+# or accept ~1 hour shift in winter (scan at 3:30 PM / 11:00 AM / 7:30 AM).
+#
+# Required GitHub Secrets:
+#   FINVIZ_EMAIL      — Finviz Elite account email
+#   FINVIZ_PASSWORD   — Finviz Elite account password
+#   SLACK_BOT_TOKEN   — Slack bot OAuth token
+#   FINVIZ_CHANNEL_ID — Slack channel ID for #finviz-screens
+###############################################################################
+
+name: Finviz Elite Scan
+
+on:
+  schedule:
+    # 8:30 AM ET (EDT) = 12:30 UTC
+    - cron: "30 12 * * 1-5"
+    # 12:00 PM ET (EDT) = 16:00 UTC
+    - cron: "0 16 * * 1-5"
+    # 4:30 PM ET (EDT) = 20:30 UTC
+    - cron: "30 20 * * 1-5"
+
+  # Manual trigger with mode selection
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Scan mode"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - premarket
+          - midday
+          - postclose
+          - all
+      dry_run:
+        description: "Dry run (print only, no Slack)"
+        required: false
+        default: "false"
+        type: boolean
+
+jobs:
+  finviz-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      FINVIZ_EMAIL: ${{ secrets.FINVIZ_EMAIL }}
+      FINVIZ_PASSWORD: ${{ secrets.FINVIZ_PASSWORD }}
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      FINVIZ_CHANNEL_ID: ${{ secrets.FINVIZ_CHANNEL_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install requests beautifulsoup4
+
+      - name: Determine scan mode from schedule
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "mode=${{ github.event.inputs.mode }}" >> $GITHUB_OUTPUT
+            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          else
+            # Map cron schedule to mode based on UTC hour
+            HOUR=$(date -u +%H)
+            MINUTE=$(date -u +%M)
+            echo "Current UTC time: ${HOUR}:${MINUTE}"
+
+            if [ "$HOUR" -le 13 ]; then
+              echo "mode=premarket" >> $GITHUB_OUTPUT
+            elif [ "$HOUR" -le 17 ]; then
+              echo "mode=midday" >> $GITHUB_OUTPUT
+            else
+              echo "mode=postclose" >> $GITHUB_OUTPUT
+            fi
+            echo "dry_run=false" >> $GITHUB_OUTPUT
+          fi
+          echo "Selected mode: $(cat $GITHUB_OUTPUT | grep mode)"
+
+      - name: Run Finviz scan
+        run: |
+          MODE="${{ steps.mode.outputs.mode }}"
+          DRY_RUN="${{ steps.mode.outputs.dry_run }}"
+
+          CMD="python finviz_scan.py --mode $MODE"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            CMD="$CMD --dry-run"
+          fi
+
+          echo "Running: $CMD"
+          $CMD
+
+      - name: Upload CSV artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: finviz-results-${{ steps.mode.outputs.mode }}-${{ github.run_number }}
+          path: finviz_output/*.csv
+          retention-days: 30
+          if-no-files-found: ignore
